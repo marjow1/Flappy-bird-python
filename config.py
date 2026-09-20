@@ -1,13 +1,3 @@
-"""
-====================================================================
-  FLAPPY LAB — STUDENT CONFIG
-  Change the numbers in this file, then run:  python main.py
-  Watch the game (and the on-screen HUD) to see what changed.
-====================================================================
-Teacher tip: pick ONE variable at a time. Ask students to predict
-what will happen before they press Play.
-"""
-# --------------------------------------------------------------------
 # WINDOW
 # --------------------------------------------------------------------
 # Size of the game window in pixels. Bigger window = more space to fly.
@@ -16,14 +6,17 @@ SCREEN_HEIGHT = 600
 # Frames drawn per second. Higher = smoother (and a bit harder to think).
 # Try 10 (choppy / slow-mo) vs 30 (fast).
 FPS = 15
+WINDOW_TITLE = "Flappy Bird"
 # Window title shown at the top of the window.
 WINDOW_TITLE = "Flappy Lab"
 # --------------------------------------------------------------------
 # BIRD PHYSICS  (the heart of the lab)
+# BIRD PHYSICS
 # --------------------------------------------------------------------
 # How hard the bird jumps when you press SPACE or UP.
 # Bigger number = higher jump. Try 10, then 30.
 JUMP_STRENGTH = 20
+SPEED = 20
 # How fast the bird falls each frame. Bigger = heavier bird.
 # Try 0.5 (moon gravity) vs 5 (lead bird).
 GRAVITY = 2.5
@@ -52,10 +45,12 @@ PIPE_WIDTH = 80
 # How tall the pipe image is (should be taller than the screen).
 PIPE_HEIGHT = 500
 # Distance from the right edge before the first pipes appear.
+# How far in from the right the first pipes appear.
 PIPE_SPAWN_OFFSET = 800
 # Horizontal space between pipe pairs.
-PIPE_SPACING = SCREEN_WIDTH
-# Random height of the bottom pipe (min and max, in pixels).
+
+[3 lines collapsed]
+
 PIPE_MIN_HEIGHT = 100
 PIPE_MAX_HEIGHT = 300
 # How many pipe pairs are on screen at once.
@@ -63,6 +58,7 @@ PIPE_PAIRS = 2
 # --------------------------------------------------------------------
 # GROUND
 # --------------------------------------------------------------------
+GROUND_WIDTH = 2 * SCREEN_WIDTH
 GROUND_HEIGHT = 100
 # How much the looping ground overlaps so you don't see a seam.
 GROUND_SEAM_OVERLAP = 20
@@ -95,21 +91,27 @@ BIRD_EYE = (40, 40, 40)
 # --------------------------------------------------------------------
 # CLASSROOM HUD
 # Show the current settings on screen so students can connect
+# Show live mechanics on screen so students can connect
 # "I changed GRAVITY" with "the bird falls faster".
 # --------------------------------------------------------------------
 SHOW_HUD = True
 SHOW_START_SETTINGS = True
+# Quiet classroom: set SOUND_ENABLED to False.
+SOUND_ENABLED = True
+VOLUME = 0.6
 # --------------------------------------------------------------------
 # PRESETS
 # Set ACTIVE_PRESET to one of: "custom", "easy", "normal", "hard", "moon"
 # "custom" uses ALL the values you typed above.
 # The other names overwrite physics so a whole class can switch difficulty
 # with a single word.
+# Named presets overwrite SPEED, GRAVITY, GAME_SPEED, PIPE_GAP, and FPS.
 # --------------------------------------------------------------------
 ACTIVE_PRESET = "custom"
 PRESETS = {
     "easy": {
         "JUMP_STRENGTH": 18,
+        "SPEED": 18,
         "GRAVITY": 1.6,
         "GAME_SPEED": 10,
         "PIPE_GAP": 220,
@@ -117,6 +119,7 @@ PRESETS = {
     },
     "normal": {
         "JUMP_STRENGTH": 20,
+        "SPEED": 20,
         "GRAVITY": 2.5,
         "GAME_SPEED": 15,
         "PIPE_GAP": 150,
@@ -124,6 +127,7 @@ PRESETS = {
     },
     "hard": {
         "JUMP_STRENGTH": 22,
+        "SPEED": 22,
         "GRAVITY": 3.4,
         "GAME_SPEED": 22,
         "PIPE_GAP": 110,
@@ -131,23 +135,18 @@ PRESETS = {
     },
     "moon": {
         "JUMP_STRENGTH": 12,
+        "SPEED": 12,
         "GRAVITY": 0.6,
         "GAME_SPEED": 8,
         "PIPE_GAP": 200,
-        "FPS": 15,
-    },
-}
-def apply_preset():
-    """Overwrite this module's physics when a named preset is selected."""
-    name = (ACTIVE_PRESET or "custom").strip().lower()
-    if name == "custom":
-        return "custom"
+
+[10 lines collapsed]
+
     if name not in PRESETS:
         raise ValueError(
             f'Unknown ACTIVE_PRESET "{ACTIVE_PRESET}". '
             'Use custom, easy, normal, hard, or moon.'
+            "Use custom, easy, normal, hard, or moon."
         )
     for key, value in PRESETS[name].items():
         globals()[key] = value
-    return name
-PRESET_NAME = apply_preset()
