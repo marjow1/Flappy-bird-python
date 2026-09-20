@@ -1,4 +1,4 @@
-# Flappy-bird-python
+# Flappy-bird-python (Updated for Classwork)
 A basic Flappy Bird game made in Python
 
 With an added config file just edit the config file and run the main.py and see how varibles work :)
