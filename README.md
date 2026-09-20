@@ -1,6 +1,8 @@
 # Flappy-bird-python
 A basic Flappy Bird game made in Python
 
+With an added config file just edit the config file and run the main.py and see how varibles work :)
+
 I took the assets from https://github.com/zhaolingzhi/FlapPyBird-master | Credits to him
 
 ## Current State:
