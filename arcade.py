@@ -1,19 +1,137 @@
 """
-Flappy Lab — Arcade classroom clone.
+====================================================================
+  FLAPPY LAB — edit THIS file, then run:  python arcade.py
+  Change one number at a time. The HUD on screen shows your values.
+====================================================================
 
-Students: edit config.py, then run:
-  python main.py
-
-This is the Arcade version of the game (yellow bird, green pipes).
+Teacher tip: pick ONE variable, ask students to predict, then run.
 """
 
-from __future__ import annotations
+# --------------------------------------------------------------------
+# WINDOW
+# --------------------------------------------------------------------
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 800
+SCREEN_TITLE = "Flappy Bird Clone"
 
+# --------------------------------------------------------------------
+# BIRD PHYSICS
+# Arcade's Y axis points UP, so gravity is a negative number.
+# More negative = falls faster. Try -0.2 (floaty) vs -1.5 (heavy).
+# --------------------------------------------------------------------
+GRAVITY = -0.5
+
+# How hard the bird jumps when you press SPACE.
+# Bigger number = higher flap. Try 4, then 12.
+JUMP_SPEED = 8
+
+# Size of the yellow bird square, in pixels.
+BIRD_SIZE = 30
+
+# Starting position.
+BIRD_START_X = SCREEN_WIDTH // 4
+BIRD_START_Y = SCREEN_HEIGHT // 2
+
+# --------------------------------------------------------------------
+# PIPES
+# --------------------------------------------------------------------
+# How fast pipes move left. Bigger = harder.
+PIPE_SPEED = 4
+
+PIPE_WIDTH = 70
+
+# Gap the bird flies through. Bigger gap = easier.
+# Try 120 (tight) vs 300 (easy).
+GAP_SIZE = 200
+
+# Frames between new pipe pairs. Bigger = more space between pipes.
+SPAWN_INTERVAL = 100
+
+# Keep the gap away from the floor and ceiling by this many pixels.
+GAP_MARGIN = 50
+
+# --------------------------------------------------------------------
+# SCORING
+# --------------------------------------------------------------------
+POINTS_PER_PIPE = 1
+
+# --------------------------------------------------------------------
+# CLASSROOM HUD
+# --------------------------------------------------------------------
+SHOW_HUD = True
+
+# --------------------------------------------------------------------
+# PRESETS
+# Set ACTIVE_PRESET to "custom", "easy", "normal", "hard", or "moon".
+# "custom" uses the numbers you typed above.
+# --------------------------------------------------------------------
+ACTIVE_PRESET = "custom"
+
+PRESETS = {
+    "easy": {
+        "GRAVITY": -0.25,
+        "JUMP_SPEED": 7,
+        "PIPE_SPEED": 3,
+        "GAP_SIZE": 280,
+        "SPAWN_INTERVAL": 130,
+    },
+    "normal": {
+        "GRAVITY": -0.5,
+        "JUMP_SPEED": 8,
+        "PIPE_SPEED": 4,
+        "GAP_SIZE": 200,
+        "SPAWN_INTERVAL": 100,
+    },
+    "hard": {
+        "GRAVITY": -0.8,
+        "JUMP_SPEED": 9,
+        "PIPE_SPEED": 6,
+        "GAP_SIZE": 140,
+        "SPAWN_INTERVAL": 80,
+    },
+    "moon": {
+        "GRAVITY": -0.12,
+        "JUMP_SPEED": 5,
+        "PIPE_SPEED": 2,
+        "GAP_SIZE": 260,
+        "SPAWN_INTERVAL": 140,
+    },
+}
+
+
+def apply_preset():
+    name = (ACTIVE_PRESET or "custom").strip().lower()
+    if name == "custom":
+        return "custom"
+    if name not in PRESETS:
+        raise ValueError(
+            f'Unknown ACTIVE_PRESET "{ACTIVE_PRESET}". '
+            "Use custom, easy, normal, hard, or moon."
+        )
+    for key, value in PRESETS[name].items():
+        globals()[key] = value
+    return name
+
+
+PRESET_NAME = apply_preset()
+
+# --- game code below: students usually do not need to edit this ----------
+
+import os
 import random
+import sys
+
+# This file is named arcade.py, so Python would otherwise import *this* file
+# instead of the Arcade library. Put the script folder at the end of sys.path
+# so `import arcade` loads the installed package.
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if sys.path and os.path.abspath(sys.path[0] or ".") in {
+    _SCRIPT_DIR,
+    os.path.abspath(os.getcwd()),
+}:
+    sys.path.append(sys.path.pop(0))
 
 import arcade
-
-import config as C
 
 
 class Pipe(arcade.SpriteSolidColor):
@@ -26,7 +144,7 @@ class Pipe(arcade.SpriteSolidColor):
 
 class FlappyBird(arcade.Window):
     def __init__(self) -> None:
-        super().__init__(C.SCREEN_WIDTH, C.SCREEN_HEIGHT, C.SCREEN_TITLE)
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
         arcade.set_background_color(arcade.color.SKY_BLUE)
 
         self.bird = None
@@ -40,12 +158,12 @@ class FlappyBird(arcade.Window):
         self.bird_list = arcade.SpriteList()
 
         self.bird = arcade.SpriteSolidColor(
-            C.BIRD_SIZE,
-            C.BIRD_SIZE,
+            BIRD_SIZE,
+            BIRD_SIZE,
             color=arcade.color.YELLOW,
         )
-        self.bird.center_x = C.BIRD_START_X
-        self.bird.center_y = C.BIRD_START_Y
+        self.bird.center_x = BIRD_START_X
+        self.bird.center_y = BIRD_START_Y
         self.bird.change_y = 0
         self.bird_list.append(self.bird)
 
@@ -63,22 +181,22 @@ class FlappyBird(arcade.Window):
         arcade.draw_text(
             f"Score: {int(self.score)}",
             20,
-            C.SCREEN_HEIGHT - 40,
+            SCREEN_HEIGHT - 40,
             arcade.color.WHITE,
             24,
             bold=True,
         )
 
-        if C.SHOW_HUD:
+        if SHOW_HUD:
             hud = [
-                f"preset: {C.PRESET_NAME}",
-                f"GRAVITY: {C.GRAVITY}",
-                f"JUMP_SPEED: {C.JUMP_SPEED}",
-                f"PIPE_SPEED: {C.PIPE_SPEED}",
-                f"GAP_SIZE: {C.GAP_SIZE}",
-                f"SPAWN_INTERVAL: {C.SPAWN_INTERVAL}",
+                f"preset: {PRESET_NAME}",
+                f"GRAVITY: {GRAVITY}",
+                f"JUMP_SPEED: {JUMP_SPEED}",
+                f"PIPE_SPEED: {PIPE_SPEED}",
+                f"GAP_SIZE: {GAP_SIZE}",
+                f"SPAWN_INTERVAL: {SPAWN_INTERVAL}",
             ]
-            y = C.SCREEN_HEIGHT - 70
+            y = SCREEN_HEIGHT - 70
             for line in hud:
                 arcade.draw_text(line, 20, y, arcade.color.DARK_BLUE, 12, bold=True)
                 y -= 16
@@ -86,8 +204,8 @@ class FlappyBird(arcade.Window):
         if self.game_over:
             arcade.draw_text(
                 "GAME OVER",
-                C.SCREEN_WIDTH // 2,
-                C.SCREEN_HEIGHT // 2 + 50,
+                SCREEN_WIDTH // 2,
+                SCREEN_HEIGHT // 2 + 50,
                 arcade.color.RED,
                 50,
                 anchor_x="center",
@@ -95,44 +213,44 @@ class FlappyBird(arcade.Window):
             )
             arcade.draw_text(
                 "Press SPACE to Restart",
-                C.SCREEN_WIDTH // 2,
-                C.SCREEN_HEIGHT // 2 - 20,
+                SCREEN_WIDTH // 2,
+                SCREEN_HEIGHT // 2 - 20,
                 arcade.color.WHITE,
                 20,
                 anchor_x="center",
             )
 
     def spawn_pipes(self) -> None:
-        low = C.GAP_SIZE + C.GAP_MARGIN
-        high = C.SCREEN_HEIGHT - C.GAP_SIZE - C.GAP_MARGIN
+        low = GAP_SIZE + GAP_MARGIN
+        high = SCREEN_HEIGHT - GAP_SIZE - GAP_MARGIN
         if high <= low:
-            center_y = C.SCREEN_HEIGHT // 2
+            center_y = SCREEN_HEIGHT // 2
         else:
             center_y = random.randint(int(low), int(high))
 
-        bottom_pipe = Pipe(C.PIPE_WIDTH, C.SCREEN_HEIGHT, arcade.color.GREEN)
-        bottom_pipe.center_x = C.SCREEN_WIDTH + C.PIPE_WIDTH // 2
-        bottom_pipe.top = center_y - C.GAP_SIZE // 2
-        bottom_pipe.change_x = -C.PIPE_SPEED
+        bottom_pipe = Pipe(PIPE_WIDTH, SCREEN_HEIGHT, arcade.color.GREEN)
+        bottom_pipe.center_x = SCREEN_WIDTH + PIPE_WIDTH // 2
+        bottom_pipe.top = center_y - GAP_SIZE // 2
+        bottom_pipe.change_x = -PIPE_SPEED
         self.pipes.append(bottom_pipe)
 
-        top_pipe = Pipe(C.PIPE_WIDTH, C.SCREEN_HEIGHT, arcade.color.GREEN)
-        top_pipe.center_x = C.SCREEN_WIDTH + C.PIPE_WIDTH // 2
-        top_pipe.bottom = center_y + C.GAP_SIZE // 2
-        top_pipe.change_x = -C.PIPE_SPEED
+        top_pipe = Pipe(PIPE_WIDTH, SCREEN_HEIGHT, arcade.color.GREEN)
+        top_pipe.center_x = SCREEN_WIDTH + PIPE_WIDTH // 2
+        top_pipe.bottom = center_y + GAP_SIZE // 2
+        top_pipe.change_x = -PIPE_SPEED
         self.pipes.append(top_pipe)
 
     def on_update(self, delta_time: float) -> None:
         if self.game_over:
             return
 
-        self.bird.change_y += C.GRAVITY
+        self.bird.change_y += GRAVITY
         self.bird.center_y += self.bird.change_y
 
         self.pipes.update()
 
         self.frames += 1
-        if self.frames % max(1, int(C.SPAWN_INTERVAL)) == 0:
+        if self.frames % max(1, int(SPAWN_INTERVAL)) == 0:
             self.spawn_pipes()
 
         for pipe in self.pipes:
@@ -140,13 +258,12 @@ class FlappyBird(arcade.Window):
                 pipe.remove_from_sprite_lists()
             elif pipe.right < self.bird.left and not pipe.passed:
                 pipe.passed = True
-                # Two pipes per gap, so each pipe is worth half a pair.
-                self.score += C.POINTS_PER_PIPE / 2
+                self.score += POINTS_PER_PIPE / 2
 
         if (
             arcade.check_for_collision_with_list(self.bird, self.pipes)
             or self.bird.bottom < 0
-            or self.bird.top > C.SCREEN_HEIGHT
+            or self.bird.top > SCREEN_HEIGHT
         ):
             self.game_over = True
 
@@ -158,7 +275,7 @@ class FlappyBird(arcade.Window):
             if self.game_over:
                 self.setup()
             else:
-                self.bird.change_y = C.JUMP_SPEED
+                self.bird.change_y = JUMP_SPEED
 
 
 def main() -> None:
