@@ -1,222 +1,369 @@
-import pygame, random, time
-from pygame.locals import *
+"""
+====================================================================
+  FLAPPY LAB — edit THIS file, then run:  python arcade.py
+  Change one number at a time. The HUD on screen shows your values.
+====================================================================
 
-#VARIABLES
-SCREEN_WIDHT = 400
-SCREEN_HEIGHT = 600
-SPEED = 20
-GRAVITY = 2.5
-GAME_SPEED = 15
+Teacher tip: pick ONE variable, ask students to predict, then run.
+"""
 
-GROUND_WIDHT = 2 * SCREEN_WIDHT
-GROUND_HEIGHT= 100
+# --------------------------------------------------------------------
+# WINDOW
+# --------------------------------------------------------------------
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 800
+SCREEN_TITLE = "Flappy Bird Clone"
 
-PIPE_WIDHT = 80
+# --------------------------------------------------------------------
+# BIRD PHYSICS
+# Arcade's Y axis points UP, so gravity is a negative number.
+# More negative = falls faster. Try -0.2 (floaty) vs -1.5 (heavy).
+# --------------------------------------------------------------------
+GRAVITY = -0.5
+
+# How hard the bird jumps when you press SPACE.
+# Bigger number = higher flap. Try 4, then 12.
+JUMP_SPEED = 8
+
+# Bird width in pixels. Height follows the sprite's real aspect ratio
+# (do not squash it into a square). Native art is 34px wide.
+BIRD_SIZE = 34
+
+# Starting position.
+BIRD_START_X = SCREEN_WIDTH // 4
+BIRD_START_Y = SCREEN_HEIGHT // 2
+
+# --------------------------------------------------------------------
+# PIPES
+# --------------------------------------------------------------------
+# How fast pipes move left. Bigger = harder.
+PIPE_SPEED = 4
+
+# Native pipe art is 52x320. These sizes keep that ratio (~80x500).
+PIPE_WIDTH = 80
 PIPE_HEIGHT = 500
 
-PIPE_GAP = 150
+# Gap the bird flies through. Bigger gap = easier.
+# Try 120 (tight) vs 300 (easy).
+GAP_SIZE = 200
 
-wing = 'assets/audio/wing.wav'
-hit = 'assets/audio/hit.wav'
+# Frames between new pipe pairs. Bigger = more space between pipes.
+SPAWN_INTERVAL = 100
 
-pygame.mixer.init()
+# Keep the gap away from the floor and ceiling by this many pixels.
+GAP_MARGIN = 50
+
+# --------------------------------------------------------------------
+# GROUND
+# Same tiling size as the original pygame clone.
+# --------------------------------------------------------------------
+GROUND_WIDTH = 2 * SCREEN_WIDTH
+GROUND_HEIGHT = 100
+
+# --------------------------------------------------------------------
+# SCORING
+# --------------------------------------------------------------------
+POINTS_PER_PIPE = 1
+
+# --------------------------------------------------------------------
+# CLASSROOM HUD
+# --------------------------------------------------------------------
+SHOW_HUD = True
+
+# --------------------------------------------------------------------
+# PRESETS
+# Set ACTIVE_PRESET to "custom", "easy", "normal", "hard", or "moon".
+# "custom" uses the numbers you typed above.
+# --------------------------------------------------------------------
+ACTIVE_PRESET = "custom"
+
+PRESETS = {
+    "easy": {
+        "GRAVITY": -0.25,
+        "JUMP_SPEED": 7,
+        "PIPE_SPEED": 3,
+        "GAP_SIZE": 280,
+        "SPAWN_INTERVAL": 130,
+    },
+    "normal": {
+        "GRAVITY": -0.5,
+        "JUMP_SPEED": 8,
+        "PIPE_SPEED": 4,
+        "GAP_SIZE": 200,
+        "SPAWN_INTERVAL": 100,
+    },
+    "hard": {
+        "GRAVITY": -0.8,
+        "JUMP_SPEED": 9,
+        "PIPE_SPEED": 6,
+        "GAP_SIZE": 140,
+        "SPAWN_INTERVAL": 80,
+    },
+    "moon": {
+        "GRAVITY": -0.12,
+        "JUMP_SPEED": 5,
+        "PIPE_SPEED": 2,
+        "GAP_SIZE": 260,
+        "SPAWN_INTERVAL": 140,
+    },
+}
 
 
-class Bird(pygame.sprite.Sprite):
-
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
-
-        self.images =  [pygame.image.load('assets/sprites/bluebird-upflap.png').convert_alpha(),
-                        pygame.image.load('assets/sprites/bluebird-midflap.png').convert_alpha(),
-                        pygame.image.load('assets/sprites/bluebird-downflap.png').convert_alpha()]
-
-        self.speed = SPEED
-
-        self.current_image = 0
-        self.image = pygame.image.load('assets/sprites/bluebird-upflap.png').convert_alpha()
-        self.mask = pygame.mask.from_surface(self.image)
-
-        self.rect = self.image.get_rect()
-        self.rect[0] = SCREEN_WIDHT / 6
-        self.rect[1] = SCREEN_HEIGHT / 2
-
-    def update(self):
-        self.current_image = (self.current_image + 1) % 3
-        self.image = self.images[self.current_image]
-        self.speed += GRAVITY
-
-        #UPDATE HEIGHT
-        self.rect[1] += self.speed
-
-    def bump(self):
-        self.speed = -SPEED
-
-    def begin(self):
-        self.current_image = (self.current_image + 1) % 3
-        self.image = self.images[self.current_image]
+def apply_preset():
+    name = (ACTIVE_PRESET or "custom").strip().lower()
+    if name == "custom":
+        return "custom"
+    if name not in PRESETS:
+        raise ValueError(
+            f'Unknown ACTIVE_PRESET "{ACTIVE_PRESET}". '
+            "Use custom, easy, normal, hard, or moon."
+        )
+    for key, value in PRESETS[name].items():
+        globals()[key] = value
+    return name
 
 
+PRESET_NAME = apply_preset()
+
+# --- game code below: students usually do not need to edit this ----------
+
+import os
+import random
+import sys
+
+# This file is named arcade.py, so Python would otherwise import *this* file
+# instead of the Arcade library. Put the script folder at the end of sys.path
+# so `import arcade` loads the installed package.
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if sys.path and os.path.abspath(sys.path[0] or ".") in {
+    _SCRIPT_DIR,
+    os.path.abspath(os.getcwd()),
+}:
+    sys.path.append(sys.path.pop(0))
+
+import arcade
+
+_SPRITES = os.path.join(_SCRIPT_DIR, "assets", "sprites")
 
 
-class Pipe(pygame.sprite.Sprite):
-
-    def __init__(self, inverted, xpos, ysize):
-        pygame.sprite.Sprite.__init__(self)
-
-        self. image = pygame.image.load('assets/sprites/pipe-green.png').convert_alpha()
-        self.image = pygame.transform.scale(self.image, (PIPE_WIDHT, PIPE_HEIGHT))
+def _load_sprite(name: str) -> arcade.Texture:
+    return arcade.load_texture(os.path.join(_SPRITES, name))
 
 
-        self.rect = self.image.get_rect()
-        self.rect[0] = xpos
+def _cover_rect(texture: arcade.Texture, width: float, height: float):
+    scale = max(width / texture.width, height / texture.height)
+    draw_w = texture.width * scale
+    draw_h = texture.height * scale
+    return arcade.LBWH((width - draw_w) / 2, (height - draw_h) / 2, draw_w, draw_h)
 
-        if inverted:
-            self.image = pygame.transform.flip(self.image, False, True)
-            self.rect[1] = - (self.rect[3] - ysize)
+
+def _box_hit_box(sprite: arcade.Sprite) -> None:
+    hw, hh = sprite.width / 2, sprite.height / 2
+    sprite.hit_box = arcade.hitbox.HitBox(
+        ((-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)),
+        position=sprite.position,
+    )
+
+
+class Pipe(arcade.Sprite):
+    def __init__(self, texture: arcade.Texture) -> None:
+        super().__init__(
+            texture,
+            scale=(PIPE_WIDTH / texture.width, PIPE_HEIGHT / texture.height),
+        )
+        _box_hit_box(self)
+        self.passed = False
+
+
+class Ground(arcade.Sprite):
+    def __init__(self, texture: arcade.Texture, left: float) -> None:
+        scale = GROUND_HEIGHT / texture.height
+        super().__init__(texture, scale=(GROUND_WIDTH / texture.width, scale))
+        self.left = left
+        self.bottom = 0
+        self.change_x = -PIPE_SPEED
+        _box_hit_box(self)
+
+
+class FlappyBird(arcade.Window):
+    def __init__(self) -> None:
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+
+        self.background = _load_sprite("background-day.png")
+        self.background_rect = _cover_rect(self.background, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.pipe_texture = _load_sprite("pipe-green.png")
+        self.pipe_texture_top = self.pipe_texture.flip_top_bottom()
+        self.ground_texture = _load_sprite("base.png")
+        self.bird_textures = [
+            _load_sprite("bluebird-upflap.png"),
+            _load_sprite("bluebird-midflap.png"),
+            _load_sprite("bluebird-downflap.png"),
+        ]
+        self.gameover_texture = _load_sprite("gameover.png")
+
+        self.bird = None
+        self.bird_list = None
+        self.pipes = None
+        self.grounds = None
+        self.score = 0
+        self.frames = 0
+        self.flap_index = 0
+        self.flap_timer = 0.0
+        self.game_over = False
+
+    def setup(self) -> None:
+        self.bird_list = arcade.SpriteList()
+
+        tex = self.bird_textures[0]
+        scale = BIRD_SIZE / tex.width
+        self.bird = arcade.Sprite(tex, scale=scale)
+        self.bird.center_x = BIRD_START_X
+        self.bird.center_y = BIRD_START_Y
+        self.bird.change_y = 0
+        _box_hit_box(self.bird)
+        self.bird_list.append(self.bird)
+
+        self.pipes = arcade.SpriteList()
+        self.grounds = arcade.SpriteList()
+        for i in range(2):
+            self.grounds.append(Ground(self.ground_texture, GROUND_WIDTH * i))
+        self.score = 0
+        self.frames = 0
+        self.flap_index = 0
+        self.flap_timer = 0.0
+        self.game_over = False
+        self.spawn_pipes()
+
+    def on_draw(self) -> None:
+        self.clear()
+        arcade.draw_texture_rect(
+            self.background,
+            self.background_rect,
+            pixelated=True,
+        )
+        self.pipes.draw(pixelated=True)
+        self.bird_list.draw(pixelated=True)
+        self.grounds.draw(pixelated=True)
+
+        arcade.draw_text(
+            f"Score: {int(self.score)}",
+            20,
+            SCREEN_HEIGHT - 40,
+            arcade.color.WHITE,
+            24,
+            bold=True,
+        )
+
+        if SHOW_HUD:
+            hud = [
+                f"preset: {PRESET_NAME}",
+                f"GRAVITY: {GRAVITY}",
+                f"JUMP_SPEED: {JUMP_SPEED}",
+                f"PIPE_SPEED: {PIPE_SPEED}",
+                f"GAP_SIZE: {GAP_SIZE}",
+                f"SPAWN_INTERVAL: {SPAWN_INTERVAL}",
+            ]
+            y = SCREEN_HEIGHT - 70
+            for line in hud:
+                arcade.draw_text(line, 20, y, arcade.color.DARK_BLUE, 12, bold=True)
+                y -= 16
+
+        if self.game_over:
+            go = self.gameover_texture
+            arcade.draw_texture_rect(
+                go,
+                arcade.XYWH(
+                    SCREEN_WIDTH / 2,
+                    SCREEN_HEIGHT / 2 + 50,
+                    go.width,
+                    go.height,
+                ),
+                pixelated=True,
+            )
+            arcade.draw_text(
+                "Press SPACE to Restart",
+                SCREEN_WIDTH // 2,
+                SCREEN_HEIGHT // 2 - 20,
+                arcade.color.WHITE,
+                20,
+                anchor_x="center",
+            )
+
+    def spawn_pipes(self) -> None:
+        low = GROUND_HEIGHT + GAP_SIZE + GAP_MARGIN
+        high = SCREEN_HEIGHT - GAP_SIZE - GAP_MARGIN
+        if high <= low:
+            center_y = (GROUND_HEIGHT + SCREEN_HEIGHT) // 2
         else:
-            self.rect[1] = SCREEN_HEIGHT - ysize
+            center_y = random.randint(int(low), int(high))
+
+        bottom_pipe = Pipe(self.pipe_texture)
+        bottom_pipe.center_x = SCREEN_WIDTH + PIPE_WIDTH // 2
+        bottom_pipe.top = center_y - GAP_SIZE // 2
+        bottom_pipe.change_x = -PIPE_SPEED
+        self.pipes.append(bottom_pipe)
+
+        top_pipe = Pipe(self.pipe_texture_top)
+        top_pipe.center_x = SCREEN_WIDTH + PIPE_WIDTH // 2
+        top_pipe.bottom = center_y + GAP_SIZE // 2
+        top_pipe.change_x = -PIPE_SPEED
+        self.pipes.append(top_pipe)
+
+    def on_update(self, delta_time: float) -> None:
+        if self.game_over:
+            return
+
+        self.bird.change_y += GRAVITY
+        self.bird.center_y += self.bird.change_y
+
+        self.flap_timer += delta_time
+        if self.flap_timer >= 0.1:
+            self.flap_timer = 0.0
+            self.flap_index = (self.flap_index + 1) % len(self.bird_textures)
+            self.bird.texture = self.bird_textures[self.flap_index]
+
+        self.pipes.update()
+        self.grounds.update()
+
+        if self.grounds and self.grounds[0].right < 0:
+            last_right = self.grounds[-1].right
+            self.grounds[0].remove_from_sprite_lists()
+            self.grounds.append(Ground(self.ground_texture, last_right - 20))
+
+        self.frames += 1
+        if self.frames % max(1, int(SPAWN_INTERVAL)) == 0:
+            self.spawn_pipes()
+
+        for pipe in self.pipes:
+            if pipe.right < 0:
+                pipe.remove_from_sprite_lists()
+            elif pipe.right < self.bird.left and not pipe.passed:
+                pipe.passed = True
+                self.score += POINTS_PER_PIPE / 2
+
+        if (
+            arcade.check_for_collision_with_list(self.bird, self.pipes)
+            or arcade.check_for_collision_with_list(self.bird, self.grounds)
+            or self.bird.top > SCREEN_HEIGHT
+        ):
+            self.game_over = True
+
+    def on_key_press(self, key, modifiers) -> None:
+        if key == arcade.key.ESCAPE:
+            arcade.close_window()
+            return
+        if key == arcade.key.SPACE:
+            if self.game_over:
+                self.setup()
+            else:
+                self.bird.change_y = JUMP_SPEED
 
 
-        self.mask = pygame.mask.from_surface(self.image)
+def main() -> None:
+    game = FlappyBird()
+    game.setup()
+    arcade.run()
 
 
-    def update(self):
-        self.rect[0] -= GAME_SPEED
-
-        
-
-class Ground(pygame.sprite.Sprite):
-    
-    def __init__(self, xpos):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('assets/sprites/base.png').convert_alpha()
-        self.image = pygame.transform.scale(self.image, (GROUND_WIDHT, GROUND_HEIGHT))
-
-        self.mask = pygame.mask.from_surface(self.image)
-
-        self.rect = self.image.get_rect()
-        self.rect[0] = xpos
-        self.rect[1] = SCREEN_HEIGHT - GROUND_HEIGHT
-    def update(self):
-        self.rect[0] -= GAME_SPEED
-
-def is_off_screen(sprite):
-    return sprite.rect[0] < -(sprite.rect[2])
-
-def get_random_pipes(xpos):
-    size = random.randint(100, 300)
-    pipe = Pipe(False, xpos, size)
-    pipe_inverted = Pipe(True, xpos, SCREEN_HEIGHT - size - PIPE_GAP)
-    return pipe, pipe_inverted
-
-
-pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDHT, SCREEN_HEIGHT))
-pygame.display.set_caption('Flappy Bird')
-
-BACKGROUND = pygame.image.load('assets/sprites/background-day.png')
-BACKGROUND = pygame.transform.scale(BACKGROUND, (SCREEN_WIDHT, SCREEN_HEIGHT))
-BEGIN_IMAGE = pygame.image.load('assets/sprites/message.png').convert_alpha()
-
-bird_group = pygame.sprite.Group()
-bird = Bird()
-bird_group.add(bird)
-
-ground_group = pygame.sprite.Group()
-
-for i in range (2):
-    ground = Ground(GROUND_WIDHT * i)
-    ground_group.add(ground)
-
-pipe_group = pygame.sprite.Group()
-for i in range (2):
-    pipes = get_random_pipes(SCREEN_WIDHT * i + 800)
-    pipe_group.add(pipes[0])
-    pipe_group.add(pipes[1])
-
-
-
-clock = pygame.time.Clock()
-
-begin = True
-
-while begin:
-
-    clock.tick(15)
-
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-        if event.type == KEYDOWN:
-            if event.key == K_SPACE or event.key == K_UP:
-                bird.bump()
-                pygame.mixer.music.load(wing)
-                pygame.mixer.music.play()
-                begin = False
-
-    screen.blit(BACKGROUND, (0, 0))
-    screen.blit(BEGIN_IMAGE, (120, 150))
-
-    if is_off_screen(ground_group.sprites()[0]):
-        ground_group.remove(ground_group.sprites()[0])
-
-        new_ground = Ground(GROUND_WIDHT - 20)
-        ground_group.add(new_ground)
-
-    bird.begin()
-    ground_group.update()
-
-    bird_group.draw(screen)
-    ground_group.draw(screen)
-
-    pygame.display.update()
-
-
-while True:
-
-    clock.tick(15)
-
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-        if event.type == KEYDOWN:
-            if event.key == K_SPACE or event.key == K_UP:
-                bird.bump()
-                pygame.mixer.music.load(wing)
-                pygame.mixer.music.play()
-
-    screen.blit(BACKGROUND, (0, 0))
-
-    if is_off_screen(ground_group.sprites()[0]):
-        ground_group.remove(ground_group.sprites()[0])
-
-        new_ground = Ground(GROUND_WIDHT - 20)
-        ground_group.add(new_ground)
-
-    if is_off_screen(pipe_group.sprites()[0]):
-        pipe_group.remove(pipe_group.sprites()[0])
-        pipe_group.remove(pipe_group.sprites()[0])
-
-        pipes = get_random_pipes(SCREEN_WIDHT * 2)
-
-        pipe_group.add(pipes[0])
-        pipe_group.add(pipes[1])
-
-    bird_group.update()
-    ground_group.update()
-    pipe_group.update()
-
-    bird_group.draw(screen)
-    pipe_group.draw(screen)
-    ground_group.draw(screen)
-
-    pygame.display.update()
-
-    if (pygame.sprite.groupcollide(bird_group, ground_group, False, False, pygame.sprite.collide_mask) or
-            pygame.sprite.groupcollide(bird_group, pipe_group, False, False, pygame.sprite.collide_mask)):
-        pygame.mixer.music.load(hit)
-        pygame.mixer.music.play()
-        time.sleep(1)
-        break
-
+if __name__ == "__main__":
+    main()
