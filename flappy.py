@@ -25,8 +25,9 @@ GRAVITY = -0.5
 # Bigger number = higher flap. Try 4, then 12.
 JUMP_SPEED = 8
 
-# Size of the yellow bird square, in pixels.
-BIRD_SIZE = 30
+# Bird width in pixels. Height follows the sprite's real aspect ratio
+# (do not squash it into a square). Native art is 34px wide.
+BIRD_SIZE = 34
 
 # Starting position.
 BIRD_START_X = SCREEN_WIDTH // 4
@@ -38,7 +39,9 @@ BIRD_START_Y = SCREEN_HEIGHT // 2
 # How fast pipes move left. Bigger = harder.
 PIPE_SPEED = 4
 
-PIPE_WIDTH = 70
+# Native pipe art is 52x320. These sizes keep that ratio (~80x500).
+PIPE_WIDTH = 80
+PIPE_HEIGHT = 500
 
 # Gap the bird flies through. Bigger gap = easier.
 # Try 120 (tight) vs 300 (easy).
@@ -49,6 +52,13 @@ SPAWN_INTERVAL = 100
 
 # Keep the gap away from the floor and ceiling by this many pixels.
 GAP_MARGIN = 50
+
+# --------------------------------------------------------------------
+# GROUND
+# Same tiling size as the original pygame clone.
+# --------------------------------------------------------------------
+GROUND_WIDTH = 2 * SCREEN_WIDTH
+GROUND_HEIGHT = 100
 
 # --------------------------------------------------------------------
 # SCORING
@@ -133,50 +143,107 @@ if sys.path and os.path.abspath(sys.path[0] or ".") in {
 
 import arcade
 
+_SPRITES = os.path.join(_SCRIPT_DIR, "assets", "sprites")
 
-class Pipe(arcade.SpriteSolidColor):
-    def __init__(self, width: int, height: int, color) -> None:
-        # Arcade 3 needs color= as a keyword. Passing it as the 3rd
-        # positional argument would be read as center_x and crash.
-        super().__init__(width, height, color=color)
+
+def _load_sprite(name: str) -> arcade.Texture:
+    return arcade.load_texture(os.path.join(_SPRITES, name))
+
+
+def _cover_rect(texture: arcade.Texture, width: float, height: float):
+    scale = max(width / texture.width, height / texture.height)
+    draw_w = texture.width * scale
+    draw_h = texture.height * scale
+    return arcade.LBWH((width - draw_w) / 2, (height - draw_h) / 2, draw_w, draw_h)
+
+
+def _box_hit_box(sprite: arcade.Sprite) -> None:
+    hw, hh = sprite.width / 2, sprite.height / 2
+    sprite.hit_box = arcade.hitbox.HitBox(
+        ((-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)),
+        position=sprite.position,
+    )
+
+
+class Pipe(arcade.Sprite):
+    def __init__(self, texture: arcade.Texture) -> None:
+        super().__init__(
+            texture,
+            scale=(PIPE_WIDTH / texture.width, PIPE_HEIGHT / texture.height),
+        )
+        _box_hit_box(self)
         self.passed = False
+
+
+class Ground(arcade.Sprite):
+    def __init__(self, texture: arcade.Texture, left: float) -> None:
+        scale = GROUND_HEIGHT / texture.height
+        super().__init__(texture, scale=(GROUND_WIDTH / texture.width, scale))
+        self.left = left
+        self.bottom = 0
+        self.change_x = -PIPE_SPEED
+        _box_hit_box(self)
 
 
 class FlappyBird(arcade.Window):
     def __init__(self) -> None:
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-        arcade.set_background_color(arcade.color.SKY_BLUE)
+
+        self.background = _load_sprite("background-day.png")
+        self.background_rect = _cover_rect(self.background, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.pipe_texture = _load_sprite("pipe-green.png")
+        self.pipe_texture_top = self.pipe_texture.flip_top_bottom()
+        self.ground_texture = _load_sprite("base.png")
+        self.bird_textures = [
+            _load_sprite("bluebird-upflap.png"),
+            _load_sprite("bluebird-midflap.png"),
+            _load_sprite("bluebird-downflap.png"),
+        ]
+        self.gameover_texture = _load_sprite("gameover.png")
 
         self.bird = None
         self.bird_list = None
         self.pipes = None
+        self.grounds = None
         self.score = 0
         self.frames = 0
+        self.flap_index = 0
+        self.flap_timer = 0.0
         self.game_over = False
 
     def setup(self) -> None:
         self.bird_list = arcade.SpriteList()
 
-        self.bird = arcade.SpriteSolidColor(
-            BIRD_SIZE,
-            BIRD_SIZE,
-            color=arcade.color.YELLOW,
-        )
+        tex = self.bird_textures[0]
+        scale = BIRD_SIZE / tex.width
+        self.bird = arcade.Sprite(tex, scale=scale)
         self.bird.center_x = BIRD_START_X
         self.bird.center_y = BIRD_START_Y
         self.bird.change_y = 0
+        _box_hit_box(self.bird)
         self.bird_list.append(self.bird)
 
         self.pipes = arcade.SpriteList()
+        self.grounds = arcade.SpriteList()
+        for i in range(2):
+            self.grounds.append(Ground(self.ground_texture, GROUND_WIDTH * i))
         self.score = 0
         self.frames = 0
+        self.flap_index = 0
+        self.flap_timer = 0.0
         self.game_over = False
         self.spawn_pipes()
 
     def on_draw(self) -> None:
         self.clear()
-        self.bird_list.draw()
-        self.pipes.draw()
+        arcade.draw_texture_rect(
+            self.background,
+            self.background_rect,
+            pixelated=True,
+        )
+        self.pipes.draw(pixelated=True)
+        self.bird_list.draw(pixelated=True)
+        self.grounds.draw(pixelated=True)
 
         arcade.draw_text(
             f"Score: {int(self.score)}",
@@ -202,14 +269,16 @@ class FlappyBird(arcade.Window):
                 y -= 16
 
         if self.game_over:
-            arcade.draw_text(
-                "GAME OVER",
-                SCREEN_WIDTH // 2,
-                SCREEN_HEIGHT // 2 + 50,
-                arcade.color.RED,
-                50,
-                anchor_x="center",
-                bold=True,
+            go = self.gameover_texture
+            arcade.draw_texture_rect(
+                go,
+                arcade.XYWH(
+                    SCREEN_WIDTH / 2,
+                    SCREEN_HEIGHT / 2 + 50,
+                    go.width,
+                    go.height,
+                ),
+                pixelated=True,
             )
             arcade.draw_text(
                 "Press SPACE to Restart",
@@ -221,20 +290,20 @@ class FlappyBird(arcade.Window):
             )
 
     def spawn_pipes(self) -> None:
-        low = GAP_SIZE + GAP_MARGIN
+        low = GROUND_HEIGHT + GAP_SIZE + GAP_MARGIN
         high = SCREEN_HEIGHT - GAP_SIZE - GAP_MARGIN
         if high <= low:
-            center_y = SCREEN_HEIGHT // 2
+            center_y = (GROUND_HEIGHT + SCREEN_HEIGHT) // 2
         else:
             center_y = random.randint(int(low), int(high))
 
-        bottom_pipe = Pipe(PIPE_WIDTH, SCREEN_HEIGHT, arcade.color.GREEN)
+        bottom_pipe = Pipe(self.pipe_texture)
         bottom_pipe.center_x = SCREEN_WIDTH + PIPE_WIDTH // 2
         bottom_pipe.top = center_y - GAP_SIZE // 2
         bottom_pipe.change_x = -PIPE_SPEED
         self.pipes.append(bottom_pipe)
 
-        top_pipe = Pipe(PIPE_WIDTH, SCREEN_HEIGHT, arcade.color.GREEN)
+        top_pipe = Pipe(self.pipe_texture_top)
         top_pipe.center_x = SCREEN_WIDTH + PIPE_WIDTH // 2
         top_pipe.bottom = center_y + GAP_SIZE // 2
         top_pipe.change_x = -PIPE_SPEED
@@ -247,7 +316,19 @@ class FlappyBird(arcade.Window):
         self.bird.change_y += GRAVITY
         self.bird.center_y += self.bird.change_y
 
+        self.flap_timer += delta_time
+        if self.flap_timer >= 0.1:
+            self.flap_timer = 0.0
+            self.flap_index = (self.flap_index + 1) % len(self.bird_textures)
+            self.bird.texture = self.bird_textures[self.flap_index]
+
         self.pipes.update()
+        self.grounds.update()
+
+        if self.grounds and self.grounds[0].right < 0:
+            last_right = self.grounds[-1].right
+            self.grounds[0].remove_from_sprite_lists()
+            self.grounds.append(Ground(self.ground_texture, last_right - 20))
 
         self.frames += 1
         if self.frames % max(1, int(SPAWN_INTERVAL)) == 0:
@@ -262,7 +343,7 @@ class FlappyBird(arcade.Window):
 
         if (
             arcade.check_for_collision_with_list(self.bird, self.pipes)
-            or self.bird.bottom < 0
+            or arcade.check_for_collision_with_list(self.bird, self.grounds)
             or self.bird.top > SCREEN_HEIGHT
         ):
             self.game_over = True
